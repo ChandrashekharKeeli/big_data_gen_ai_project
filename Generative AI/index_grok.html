@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Grok Multi-Tweet Sentiment Analyzer</title>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 30px auto;
+      background-color: #f7f7f7;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #333;
+    }
+    textarea, button {
+      font-size: 16px;
+      padding: 10px;
+      width: 100%;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #17a2b8;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #138496;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #fff;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    .tweet-result {
+      margin-bottom: 10px;
+      padding: 8px;
+      background-color: #eef;
+      border-radius: 6px;
+    }
+    .label {
+      font-weight: bold;
+    }
+    #downloadBtn {
+      display: none;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>🧠 Grok-Powered Tweet Sentiment Analyzer</h2>
+  <textarea id="tweetInput" rows="20" placeholder="Enter up to 1000 tweets, one per line..."></textarea>
+  <button onclick="analyzeMultipleTweets()">Analyze Sentiments</button>
+  <button id="downloadBtn" onclick="downloadCSV()">⬇️ Download CSV</button>
+  <div id="response" class="result">Results will appear here...</div>
+
+  <script src="https://js.puter.com/v2/"></script>
+  <script>
+    let tweetSentimentData = [];
+
+    async function analyzeMultipleTweets() {
+      const rawInput = document.getElementById('tweetInput').value.trim();
+      const responseDiv = document.getElementById('response');
+      const downloadBtn = document.getElementById('downloadBtn');
+      tweetSentimentData = [];
+      responseDiv.innerHTML = "";
+      downloadBtn.style.display = 'none';
+
+      if (!rawInput) {
+        responseDiv.innerHTML = `<span style="color: red;">❌ Please enter at least one tweet.</span>`;
+        return;
+      }
+
+      const tweets = rawInput.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+      const limitedTweets = tweets.slice(0, 1000);
+
+      for (let i = 0; i < limitedTweets.length; i++) {
+        const tweet = limitedTweets[i];
+        const tweetDiv = document.createElement('div');
+        tweetDiv.className = 'tweet-result';
+        tweetDiv.innerHTML = `<span class="label">Tweet ${i + 1}:</span> "${tweet}"<br>🧠 Sentiment: <em>Analyzing...</em>`;
+        responseDiv.appendChild(tweetDiv);
+
+        const prompt = `Classify the sentiment of this tweet as Positive, Negative, or Neutral. Just return one word.\n\nTweet: "${tweet}"`;
+
+        try {
+          const response = await puter.ai.chat(prompt, {
+            model: 'openrouter:x-ai/grok-2-1212'
+          });
+
+          const sentiment = response?.message?.content?.trim() || "Unknown";
+          tweetSentimentData.push({ tweet, sentiment });
+
+          tweetDiv.innerHTML = `<span class="label">Tweet ${i + 1}:</span> "${tweet}"<br>🧠 Sentiment: <strong>${sentiment}</strong>`;
+        } catch (error) {
+          tweetDiv.innerHTML = `<span class="label">Tweet ${i + 1}:</span> "${tweet}"<br>❌ Error: ${error.message || error}`;
+        }
+      }
+
+      if (tweetSentimentData.length > 0) {
+        downloadBtn.style.display = 'inline-block';
+      }
+    }
+
+    function downloadCSV() {
+      if (tweetSentimentData.length === 0) return;
+
+      let csvRows = [["Index", "Tweet", "Sentiment"]];
+      tweetSentimentData.forEach((entry, index) => {
+        const escapedTweet = entry.tweet.replace(/"/g, '""');
+        csvRows.push([index + 1, `"${escapedTweet}"`, entry.sentiment]);
+      });
+
+      const csvContent = csvRows.map(e => e.join(",")).join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "grok_tweet_sentiments.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
